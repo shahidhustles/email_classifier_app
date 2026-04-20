@@ -5,7 +5,6 @@ import '../config/app_theme.dart';
 import 'tabs/home_tab_screen.dart';
 import 'tabs/inbox_tab_screen.dart';
 import 'tabs/profile_tab_screen.dart';
-import 'tabs/settings_tab_screen.dart';
 
 class AppShellScreen extends StatefulWidget {
   const AppShellScreen({super.key});
@@ -21,14 +20,12 @@ class _AppShellScreenState extends State<AppShellScreen> {
     'Organizer',
     'Inbox',
     'Profile',
-    'Settings',
   ];
 
   static const List<Widget> _tabs = <Widget>[
     HomeTabScreen(),
     InboxTabScreen(),
     ProfileTabScreen(),
-    SettingsTabScreen(),
   ];
 
   @override
@@ -71,11 +68,6 @@ class _AppShellScreenState extends State<AppShellScreen> {
               icon: Icon(PhosphorIconsRegular.userCircle),
               selectedIcon: Icon(PhosphorIconsFill.userCircle),
               label: 'Profile',
-            ),
-            NavigationDestination(
-              icon: Icon(PhosphorIconsRegular.gear),
-              selectedIcon: Icon(PhosphorIconsFill.gear),
-              label: 'Settings',
             ),
           ],
           onDestinationSelected: (int index) {

@@ -16,24 +16,27 @@ class InboxTabScreen extends StatelessWidget {
       builder: (context, emailProvider, _) {
         final List<EmailModel> emails = emailProvider.visibleEmails;
 
-        return Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              EmailCategoryFilterBar(
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: EmailCategoryFilterBar(
                 selectedFilter: emailProvider.selectedFilter,
                 onFilterSelected: emailProvider.setSelectedFilter,
               ),
-              const SizedBox(height: 16),
-              Expanded(
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: emailProvider.refreshLatestEmails,
                 child: _InboxBody(
                   emailProvider: emailProvider,
                   emails: emails,
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         );
       },
     );
@@ -50,64 +53,80 @@ class _InboxBody extends StatelessWidget {
   Widget build(BuildContext context) {
     if (emailProvider.isBootstrappingCache ||
         (emailProvider.isLoading && emailProvider.emails.isEmpty)) {
-      return const Center(child: CircularProgressIndicator());
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        children: const [
+          SizedBox(height: 180),
+          Center(child: CircularProgressIndicator()),
+        ],
+      );
     }
 
     if (emailProvider.errorMessage != null && emails.isEmpty) {
-      return _InboxMessage(
-        message: emailProvider.errorMessage!,
-        actionLabel: 'Retry',
-        onAction: emailProvider.refreshLatestEmails,
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        children: [
+          _InboxMessage(
+            message: emailProvider.errorMessage!,
+            actionLabel: 'Retry',
+            onAction: emailProvider.refreshLatestEmails,
+          ),
+        ],
       );
     }
 
     if (emails.isEmpty) {
-      return _InboxMessage(
-        message:
-            'No ${emailProvider.selectedFilter.label.toLowerCase()} emails in the current sync.',
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        children: [
+          _InboxMessage(
+            message:
+                'No ${emailProvider.selectedFilter.label.toLowerCase()} emails in the current sync.',
+          ),
+        ],
       );
     }
 
-    return Column(
-      children: [
-        Expanded(
-          child: ListView.separated(
-            itemCount: emails.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (context, index) {
-              final EmailModel email = emails[index];
-              return EmailListItem(
-                key: ValueKey<String>('inbox-email-${email.id}'),
-                email: email,
-                compact: true,
-              );
-            },
-          ),
-        ),
-        if (emailProvider.errorMessage != null) ...[
-          const SizedBox(height: 12),
-          Text(
+    return ListView.separated(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      itemCount: emails.length + (emailProvider.errorMessage != null ? 1 : 0) + (emailProvider.hasMore ? 1 : 0),
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (context, index) {
+        if (index < emails.length) {
+          final EmailModel email = emails[index];
+          return EmailListItem(
+            key: ValueKey<String>('inbox-email-${email.id}'),
+            email: email,
+            compact: true,
+          );
+        }
+
+        final int errorIndex = emails.length;
+        if (emailProvider.errorMessage != null && index == errorIndex) {
+          return Text(
             emailProvider.errorMessage!,
             style: Theme.of(
               context,
             ).textTheme.bodySmall?.copyWith(color: AppColors.danger),
-          ),
-        ],
-        if (emailProvider.hasMore) ...[
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              onPressed: emailProvider.isLoadingMore
-                  ? null
-                  : emailProvider.loadMoreEmails,
-              child: Text(
-                emailProvider.isLoadingMore ? 'Loading…' : 'Load more',
-              ),
+          );
+        }
+
+        return SizedBox(
+          width: double.infinity,
+          child: OutlinedButton(
+            onPressed: emailProvider.isLoadingMore
+                ? null
+                : emailProvider.loadMoreEmails,
+            child: Text(
+              emailProvider.isLoadingMore ? 'Loading…' : 'Load more',
             ),
           ),
-        ],
-      ],
+        );
+      },
     );
   }
 }

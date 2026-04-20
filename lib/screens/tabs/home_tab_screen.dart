@@ -19,22 +19,15 @@ class HomeTabScreen extends StatelessWidget {
             .take(6)
             .toList(growable: false);
 
-        return Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        return RefreshIndicator(
+          onRefresh: authProvider.hasGmailAccess
+              ? emailProvider.refreshLatestEmails
+              : () async {},
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16),
             children: [
-              _Toolbar(
-                canRefresh: authProvider.hasGmailAccess && !emailProvider.isLoading,
-                onRefresh: emailProvider.refreshLatestEmails,
-              ),
-              const SizedBox(height: 16),
-              _AccessSection(
-                hasGmailAccess: authProvider.hasGmailAccess,
-                isBusy: authProvider.isLoading,
-                onAuthorize: authProvider.authorizeScopes,
-                lastSyncedAt: emailProvider.lastRefreshedAt,
-              ),
+              const _Toolbar(),
               const SizedBox(height: 16),
               _SummarySection(emailProvider: emailProvider),
               const SizedBox(height: 16),
@@ -43,12 +36,10 @@ class HomeTabScreen extends StatelessWidget {
                 onFilterSelected: emailProvider.setSelectedFilter,
               ),
               const SizedBox(height: 16),
-              Expanded(
-                child: _PreviewSection(
-                  authProvider: authProvider,
-                  emailProvider: emailProvider,
-                  previewEmails: previewEmails,
-                ),
+              _PreviewSection(
+                authProvider: authProvider,
+                emailProvider: emailProvider,
+                previewEmails: previewEmails,
               ),
             ],
           ),
@@ -59,82 +50,15 @@ class HomeTabScreen extends StatelessWidget {
 }
 
 class _Toolbar extends StatelessWidget {
-  const _Toolbar({required this.canRefresh, required this.onRefresh});
-
-  final bool canRefresh;
-  final VoidCallback onRefresh;
+  const _Toolbar();
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
         Text('Organizer', style: Theme.of(context).textTheme.titleLarge),
-        const Spacer(),
-        FilledButton(
-          onPressed: canRefresh ? onRefresh : null,
-          child: const Text('Refresh'),
-        ),
       ],
     );
-  }
-}
-
-class _AccessSection extends StatelessWidget {
-  const _AccessSection({
-    required this.hasGmailAccess,
-    required this.isBusy,
-    required this.onAuthorize,
-    required this.lastSyncedAt,
-  });
-
-  final bool hasGmailAccess;
-  final bool isBusy;
-  final VoidCallback onAuthorize;
-  final DateTime? lastSyncedAt;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            hasGmailAccess ? 'Gmail access granted' : 'Gmail access required',
-            style: Theme.of(context).textTheme.bodyLarge,
-          ),
-          const SizedBox(height: 6),
-          Text(
-            lastSyncedAt == null
-                ? 'No synced data yet.'
-                : 'Last synced ${_formatDate(lastSyncedAt!)}',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          if (!hasGmailAccess) ...[
-            const SizedBox(height: 12),
-            OutlinedButton(
-              onPressed: isBusy ? null : onAuthorize,
-              child: const Text('Authorize Gmail access'),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  String _formatDate(DateTime value) {
-    final DateTime local = value.toLocal();
-    final String month = local.month.toString().padLeft(2, '0');
-    final String day = local.day.toString().padLeft(2, '0');
-    final String hour = local.hour.toString().padLeft(2, '0');
-    final String minute = local.minute.toString().padLeft(2, '0');
-    return '${local.year}-$month-$day $hour:$minute';
   }
 }
 
@@ -208,13 +132,16 @@ class _PreviewSection extends StatelessWidget {
   Widget build(BuildContext context) {
     if (emailProvider.isBootstrappingCache ||
         (emailProvider.isLoading && emailProvider.emails.isEmpty)) {
-      return const Center(child: CircularProgressIndicator());
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 48),
+        child: Center(child: CircularProgressIndicator()),
+      );
     }
 
     if (emailProvider.errorMessage != null) {
       return _MessageBlock(
         message: emailProvider.errorMessage!,
-        actionLabel: 'Retry',
+        actionLabel: authProvider.hasGmailAccess ? 'Retry' : 'Authorize Gmail access',
         onAction: authProvider.hasGmailAccess
             ? emailProvider.refreshLatestEmails
             : authProvider.authorizeScopes,
@@ -222,7 +149,11 @@ class _PreviewSection extends StatelessWidget {
     }
 
     if (!authProvider.hasGmailAccess && previewEmails.isEmpty) {
-      return const _MessageBlock(message: 'Authorize Gmail access to start syncing.');
+      return _MessageBlock(
+        message: 'Authorize Gmail access to start syncing.',
+        actionLabel: 'Authorize Gmail access',
+        onAction: authProvider.authorizeScopes,
+      );
     }
 
     if (previewEmails.isEmpty) {
@@ -232,16 +163,16 @@ class _PreviewSection extends StatelessWidget {
       );
     }
 
-    return ListView.separated(
-      itemCount: previewEmails.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
-      itemBuilder: (context, index) {
-        final EmailModel email = previewEmails[index];
-        return EmailListItem(
-          key: ValueKey<String>('home-email-${email.id}'),
-          email: email,
-        );
-      },
+    return Column(
+      children: [
+        for (int index = 0; index < previewEmails.length; index++) ...[
+          EmailListItem(
+            key: ValueKey<String>('home-email-${previewEmails[index].id}'),
+            email: previewEmails[index],
+          ),
+          if (index < previewEmails.length - 1) const SizedBox(height: 10),
+        ],
+      ],
     );
   }
 }
