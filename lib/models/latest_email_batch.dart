@@ -1,8 +1,13 @@
 import 'email_model.dart';
 
 class LatestEmailBatch {
-  const LatestEmailBatch({required this.emails, this.nextPageToken});
+  const LatestEmailBatch({
+    required this.emails,
+    required this.nextPageTokensByLabel,
+    required this.hasMore,
+  });
 
   final List<EmailModel> emails;
-  final String? nextPageToken;
+  final Map<String, String?> nextPageTokensByLabel;
+  final bool hasMore;
 }

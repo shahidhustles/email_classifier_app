@@ -21,6 +21,7 @@ class EmailParserService {
       dateHeader: dateHeader,
       plainTextBody: _extractPlainTextBody(payload),
       labelIds: List<String>.unmodifiable(message.labelIds ?? const <String>[]),
+      category: EmailCategory.nonEcommerce,
     );
   }
 
