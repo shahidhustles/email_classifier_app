@@ -18,7 +18,7 @@ class _AppShellScreenState extends State<AppShellScreen> {
   int _selectedIndex = 0;
 
   static const List<String> _titles = <String>[
-    'Home',
+    'Organizer',
     'Inbox',
     'Profile',
     'Settings',

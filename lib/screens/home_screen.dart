@@ -79,7 +79,9 @@ class HomeScreen extends StatelessWidget {
                         TextButton(
                           onPressed: emailProvider.isLoading
                               ? null
-                              : () => emailProvider.loadLatestEmails(limit: 10),
+                              : () => emailProvider.loadLatestEmails(
+                                  limitPerLabel: 10,
+                                ),
                           child: const Text('Load'),
                         ),
                         TextButton(

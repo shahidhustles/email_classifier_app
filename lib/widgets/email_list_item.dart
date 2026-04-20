@@ -12,12 +12,8 @@ class EmailListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final EdgeInsetsGeometry padding = compact
-        ? const EdgeInsets.symmetric(horizontal: 12, vertical: 10)
+        ? const EdgeInsets.symmetric(horizontal: 12, vertical: 12)
         : const EdgeInsets.all(14);
-
-    final TextStyle? subjectStyle = compact
-        ? Theme.of(context).textTheme.titleSmall
-        : Theme.of(context).textTheme.titleMedium;
 
     return Card(
       child: Padding(
@@ -28,31 +24,24 @@ class EmailListItem extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 4,
-                  height: compact ? 48 : 56,
-                  margin: const EdgeInsets.only(right: 10, top: 2),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                ),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
+                        email.subject,
+                        style: compact
+                            ? Theme.of(context).textTheme.titleSmall
+                            : Theme.of(context).textTheme.titleMedium,
+                        maxLines: compact ? 1 : 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
                         email.from,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: AppColors.textSecondary,
                         ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        email.subject,
-                        style: subjectStyle,
-                        maxLines: compact ? 1 : 2,
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
@@ -65,6 +54,13 @@ class EmailListItem extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
+            Text(
+              email.category.label,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 6),
             Text(
               email.snippet.isEmpty ? '(No preview)' : email.snippet,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(

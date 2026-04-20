@@ -2,120 +2,53 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/app_theme.dart';
-import '../../models/auth_user.dart';
 import '../../models/email_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/email_provider.dart';
+import '../../widgets/email_category_filter_bar.dart';
 import '../../widgets/email_list_item.dart';
 
-class HomeTabScreen extends StatefulWidget {
+class HomeTabScreen extends StatelessWidget {
   const HomeTabScreen({super.key});
-
-  @override
-  State<HomeTabScreen> createState() => _HomeTabScreenState();
-}
-
-class _HomeTabScreenState extends State<HomeTabScreen> {
-  bool _autoLoadTriggered = false;
-
-  void _maybeAutoLoad(AuthProvider authProvider, EmailProvider emailProvider) {
-    if (_autoLoadTriggered) {
-      return;
-    }
-
-    if (!authProvider.hasGmailAccess || emailProvider.isLoading) {
-      return;
-    }
-
-    if (emailProvider.emails.isNotEmpty) {
-      _autoLoadTriggered = true;
-      return;
-    }
-
-    _autoLoadTriggered = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) {
-        return;
-      }
-      emailProvider.loadLatestEmails(limit: 10);
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
     return Consumer2<AuthProvider, EmailProvider>(
       builder: (context, authProvider, emailProvider, _) {
-        _maybeAutoLoad(authProvider, emailProvider);
-
-        final AuthUser? user = authProvider.currentUser;
-        final List<EmailModel> topEmails = emailProvider.emails.length > 10
-            ? emailProvider.emails.take(10).toList(growable: false)
-            : emailProvider.emails;
+        final List<EmailModel> previewEmails = emailProvider.visibleEmails
+            .take(6)
+            .toList(growable: false);
 
         return Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Welcome back',
-                      style: Theme.of(context).textTheme.labelMedium,
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      user?.displayName ?? user?.email ?? 'Inbox user',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        _StatusPill(
-                          label: authProvider.hasGmailAccess
-                              ? 'Gmail Access Granted'
-                              : 'Gmail Access Missing',
-                          color: authProvider.hasGmailAccess
-                              ? AppColors.success
-                              : AppColors.warning,
-                        ),
-                        const Spacer(),
-                        TextButton(
-                          onPressed: emailProvider.isLoading
-                              ? null
-                              : emailProvider.refreshLatestEmails,
-                          child: const Text('Refresh'),
-                        ),
-                      ],
-                    ),
-                    if (!authProvider.hasGmailAccess)
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: FilledButton(
-                          onPressed: authProvider.authorizeScopes,
-                          child: const Text('Authorize Gmail Access'),
-                        ),
-                      ),
-                  ],
-                ),
+              _Toolbar(
+                canRefresh: authProvider.hasGmailAccess && !emailProvider.isLoading,
+                onRefresh: emailProvider.refreshLatestEmails,
               ),
-              const SizedBox(height: 18),
-              Text(
-                'Recent 10 emails',
-                style: Theme.of(context).textTheme.titleMedium,
+              const SizedBox(height: 16),
+              _AccessSection(
+                hasGmailAccess: authProvider.hasGmailAccess,
+                isBusy: authProvider.isLoading,
+                onAuthorize: authProvider.authorizeScopes,
+                lastSyncedAt: emailProvider.lastRefreshedAt,
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 16),
+              _SummarySection(emailProvider: emailProvider),
+              const SizedBox(height: 16),
+              EmailCategoryFilterBar(
+                selectedFilter: emailProvider.selectedFilter,
+                onFilterSelected: emailProvider.setSelectedFilter,
+              ),
+              const SizedBox(height: 16),
               Expanded(
-                child: _buildEmailSection(context, emailProvider, topEmails),
+                child: _PreviewSection(
+                  authProvider: authProvider,
+                  emailProvider: emailProvider,
+                  previewEmails: previewEmails,
+                ),
               ),
             ],
           ),
@@ -123,45 +56,187 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
       },
     );
   }
+}
 
-  Widget _buildEmailSection(
-    BuildContext context,
-    EmailProvider emailProvider,
-    List<EmailModel> topEmails,
-  ) {
-    if (emailProvider.isLoading) {
+class _Toolbar extends StatelessWidget {
+  const _Toolbar({required this.canRefresh, required this.onRefresh});
+
+  final bool canRefresh;
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text('Organizer', style: Theme.of(context).textTheme.titleLarge),
+        const Spacer(),
+        FilledButton(
+          onPressed: canRefresh ? onRefresh : null,
+          child: const Text('Refresh'),
+        ),
+      ],
+    );
+  }
+}
+
+class _AccessSection extends StatelessWidget {
+  const _AccessSection({
+    required this.hasGmailAccess,
+    required this.isBusy,
+    required this.onAuthorize,
+    required this.lastSyncedAt,
+  });
+
+  final bool hasGmailAccess;
+  final bool isBusy;
+  final VoidCallback onAuthorize;
+  final DateTime? lastSyncedAt;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            hasGmailAccess ? 'Gmail access granted' : 'Gmail access required',
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            lastSyncedAt == null
+                ? 'No synced data yet.'
+                : 'Last synced ${_formatDate(lastSyncedAt!)}',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          if (!hasGmailAccess) ...[
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: isBusy ? null : onAuthorize,
+              child: const Text('Authorize Gmail access'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(DateTime value) {
+    final DateTime local = value.toLocal();
+    final String month = local.month.toString().padLeft(2, '0');
+    final String day = local.day.toString().padLeft(2, '0');
+    final String hour = local.hour.toString().padLeft(2, '0');
+    final String minute = local.minute.toString().padLeft(2, '0');
+    return '${local.year}-$month-$day $hour:$minute';
+  }
+}
+
+class _SummarySection extends StatelessWidget {
+  const _SummarySection({required this.emailProvider});
+
+  final EmailProvider emailProvider;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: [
+          _CountRow(label: 'All', count: emailProvider.allCount),
+          const Divider(height: 20, color: AppColors.border),
+          _CountRow(label: 'Orders', count: emailProvider.orderCount),
+          const Divider(height: 20, color: AppColors.border),
+          _CountRow(label: 'Shipping', count: emailProvider.shippingCount),
+          const Divider(height: 20, color: AppColors.border),
+          _CountRow(label: 'Promotions', count: emailProvider.promotionCount),
+          const Divider(height: 20, color: AppColors.border),
+          _CountRow(label: 'Other', count: emailProvider.otherCount),
+        ],
+      ),
+    );
+  }
+}
+
+class _CountRow extends StatelessWidget {
+  const _CountRow({required this.label, required this.count});
+
+  final String label;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text(label, style: Theme.of(context).textTheme.bodyMedium),
+        const Spacer(),
+        Text(
+          '$count',
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+        ),
+      ],
+    );
+  }
+}
+
+class _PreviewSection extends StatelessWidget {
+  const _PreviewSection({
+    required this.authProvider,
+    required this.emailProvider,
+    required this.previewEmails,
+  });
+
+  final AuthProvider authProvider;
+  final EmailProvider emailProvider;
+  final List<EmailModel> previewEmails;
+
+  @override
+  Widget build(BuildContext context) {
+    if (emailProvider.isBootstrappingCache ||
+        (emailProvider.isLoading && emailProvider.emails.isEmpty)) {
       return const Center(child: CircularProgressIndicator());
     }
 
     if (emailProvider.errorMessage != null) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            emailProvider.errorMessage!,
-            style: const TextStyle(color: AppColors.danger),
-          ),
-          const SizedBox(height: 10),
-          FilledButton(
-            onPressed: emailProvider.refreshLatestEmails,
-            child: const Text('Retry'),
-          ),
-        ],
+      return _MessageBlock(
+        message: emailProvider.errorMessage!,
+        actionLabel: 'Retry',
+        onAction: authProvider.hasGmailAccess
+            ? emailProvider.refreshLatestEmails
+            : authProvider.authorizeScopes,
       );
     }
 
-    if (topEmails.isEmpty) {
-      return const _EmptyState(
-        title: 'No recent emails yet',
-        subtitle: 'Use refresh to fetch your latest inbox activity.',
+    if (!authProvider.hasGmailAccess && previewEmails.isEmpty) {
+      return const _MessageBlock(message: 'Authorize Gmail access to start syncing.');
+    }
+
+    if (previewEmails.isEmpty) {
+      final String filterLabel = emailProvider.selectedFilter.label.toLowerCase();
+      return _MessageBlock(
+        message: 'No $filterLabel emails in the current sync.',
       );
     }
 
     return ListView.separated(
-      itemCount: topEmails.length,
+      itemCount: previewEmails.length,
       separatorBuilder: (_, __) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
-        final EmailModel email = topEmails[index];
+        final EmailModel email = previewEmails[index];
         return EmailListItem(
           key: ValueKey<String>('home-email-${email.id}'),
           email: email,
@@ -171,57 +246,37 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
   }
 }
 
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.label, required this.color});
+class _MessageBlock extends StatelessWidget {
+  const _MessageBlock({
+    required this.message,
+    this.actionLabel,
+    this.onAction,
+  });
 
-  final String label;
-  final Color color;
+  final String message;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.45)),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.border),
       ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(color: color),
-      ),
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.title, required this.subtitle});
-
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 6),
-            Text(
-              subtitle,
-              style: Theme.of(context).textTheme.bodySmall,
-              textAlign: TextAlign.center,
-            ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(message, style: Theme.of(context).textTheme.bodyMedium),
+          if (actionLabel != null && onAction != null) ...[
+            const SizedBox(height: 12),
+            OutlinedButton(onPressed: onAction, child: Text(actionLabel!)),
           ],
-        ),
+        ],
       ),
     );
   }
