@@ -9,6 +9,7 @@ import 'providers/email_provider.dart';
 import 'screens/app_shell_screen.dart';
 import 'screens/login_screen.dart';
 import 'services/auth_service.dart';
+import 'services/cache_service.dart';
 import 'services/gmail_service.dart';
 
 Future<void> main() async {
@@ -23,6 +24,7 @@ class InboxStoreApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final GmailService gmailService = GmailService();
+    final CacheService cacheService = CacheService();
 
     return MultiProvider(
       providers: [
@@ -33,10 +35,18 @@ class InboxStoreApp extends StatelessWidget {
           )..bootstrap(),
         ),
         ChangeNotifierProxyProvider<AuthProvider, EmailProvider>(
-          create: (_) => EmailProvider(gmailService: gmailService),
+          create: (_) =>
+              EmailProvider(
+                gmailService: gmailService,
+                cacheService: cacheService,
+              )..bootstrap(),
           update: (_, authProvider, emailProvider) {
             final EmailProvider provider =
-                emailProvider ?? EmailProvider(gmailService: gmailService);
+                emailProvider ??
+                EmailProvider(
+                  gmailService: gmailService,
+                  cacheService: cacheService,
+                )..bootstrap();
             provider.bindAuthProvider(authProvider);
             return provider;
           },
