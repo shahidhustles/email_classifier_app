@@ -92,7 +92,7 @@ class LoginScreen extends StatelessWidget {
                             ),
                             const SizedBox(height: 10),
                             Text(
-                              'Organize your shopping emails with a clean inbox view, built for orders, shipping and promos.',
+                              'Continue with Google to sign in and grant Gmail read access for orders, shipping and promos.',
                               style: Theme.of(context).textTheme.bodyMedium
                                   ?.copyWith(color: AppColors.textSecondary),
                             ),
@@ -142,7 +142,7 @@ class LoginScreen extends StatelessWidget {
                                     : const Icon(PhosphorIconsBold.googleLogo),
                                 label: Text(
                                   authProvider.isLoading
-                                      ? 'Signing in...'
+                                      ? 'Signing in and connecting Gmail...'
                                       : 'Continue with Google',
                                 ),
                               ),

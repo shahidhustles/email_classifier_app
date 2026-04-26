@@ -46,6 +46,13 @@ class AuthProvider extends ChangeNotifier {
       }
 
       await _setAuthenticatedUser(account);
+      if (!_hasGmailAccess) {
+        _clearUserState();
+        _status = AuthStatus.unauthenticated;
+        notifyListeners();
+        return;
+      }
+
       _status = AuthStatus.authenticated;
       notifyListeners();
     } on GoogleSignInException catch (error) {
@@ -69,7 +76,10 @@ class AuthProvider extends ChangeNotifier {
     try {
       await _authService.initialize();
       final GoogleSignInAccount account = await _authService.signIn();
-      await _setAuthenticatedUser(account);
+      await _setAuthenticatedUser(account, requestScopesIfMissing: true);
+      if (!_hasGmailAccess) {
+        throw StateError('Gmail access is required to use this app.');
+      }
       _status = AuthStatus.authenticated;
       notifyListeners();
     } on GoogleSignInException catch (error) {
@@ -80,7 +90,9 @@ class AuthProvider extends ChangeNotifier {
       );
     } catch (error) {
       _status = AuthStatus.error;
-      _errorMessage = 'Sign in failed: $error';
+      _errorMessage = error is StateError
+          ? error.message
+          : 'Sign in failed: $error';
       notifyListeners();
     }
   }
@@ -177,10 +189,18 @@ class AuthProvider extends ChangeNotifier {
     return gmailApi;
   }
 
-  Future<void> _setAuthenticatedUser(GoogleSignInAccount account) async {
+  Future<void> _setAuthenticatedUser(
+    GoogleSignInAccount account, {
+    bool requestScopesIfMissing = false,
+  }) async {
     _googleUser = account;
     _currentUser = _authService.toAuthUser(account);
     _hasGmailAccess = await _authService.hasRequiredScopes(account);
+
+    if (!_hasGmailAccess && requestScopesIfMissing) {
+      await _authService.requestRequiredScopes(account);
+      _hasGmailAccess = await _authService.hasRequiredScopes(account);
+    }
   }
 
   void _clearUserState() {

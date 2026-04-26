@@ -77,7 +77,7 @@ class AuthGate extends StatelessWidget {
             return const LoginScreen();
           case AuthStatus.authenticated:
           case AuthStatus.error:
-            return authProvider.currentUser == null
+            return authProvider.currentUser == null || !authProvider.hasGmailAccess
                 ? const LoginScreen()
                 : const AppShellScreen();
         }

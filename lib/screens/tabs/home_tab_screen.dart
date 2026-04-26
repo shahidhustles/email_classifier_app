@@ -20,9 +20,7 @@ class HomeTabScreen extends StatelessWidget {
             .toList(growable: false);
 
         return RefreshIndicator(
-          onRefresh: authProvider.hasGmailAccess
-              ? emailProvider.refreshLatestEmails
-              : () async {},
+          onRefresh: emailProvider.refreshLatestEmails,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16),
@@ -141,18 +139,8 @@ class _PreviewSection extends StatelessWidget {
     if (emailProvider.errorMessage != null) {
       return _MessageBlock(
         message: emailProvider.errorMessage!,
-        actionLabel: authProvider.hasGmailAccess ? 'Retry' : 'Authorize Gmail access',
-        onAction: authProvider.hasGmailAccess
-            ? emailProvider.refreshLatestEmails
-            : authProvider.authorizeScopes,
-      );
-    }
-
-    if (!authProvider.hasGmailAccess && previewEmails.isEmpty) {
-      return _MessageBlock(
-        message: 'Authorize Gmail access to start syncing.',
-        actionLabel: 'Authorize Gmail access',
-        onAction: authProvider.authorizeScopes,
+        actionLabel: 'Retry',
+        onAction: emailProvider.refreshLatestEmails,
       );
     }
 
